@@ -124,22 +124,23 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
         ],
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=90) as client:
-            resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
-            resp.raise_for_status()
-            
-            # Получаем ответ как bytes и декодируем в UTF-8
-            content = resp.content
-            data = resp.json()
-            text = data["result"]["alternatives"][0]["message"]["text"]
-            
-            # Принудительно конвертируем в строку UTF-8
-            return text
-            
-    except Exception as e:
-        # Возвращаем сообщение об ошибке на английском
-        return f"Error: {str(e)}"
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
+        resp.raise_for_status()
+        
+        # Получаем JSON
+        data = resp.json()
+        text = data["result"]["alternatives"][0]["message"]["text"]
+        
+        # КРИТИЧЕСКИ ВАЖНО: чистим текст
+        # Убираем невидимые символы и контрольные коды
+        text = text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
+        
+        # Убираем NULL bytes и другие проблемные символы
+        text = text.replace('\x00', '')
+        text = ''.join(char for char in text if char.isprintable() or char in '\n\r\t')
+        
+        return text.strip()
 
     
 async def generate_and_post(bot: Bot):
@@ -147,23 +148,23 @@ async def generate_and_post(bot: Bot):
     global last_idea_index
     
     if not CHANNEL_ID:
-        print("❌ CHANNEL_ID не настроен!")
         return
     
-    # Выбираем следующую идею
     idea = POST_IDEAS[last_idea_index % len(POST_IDEAS)]
     last_idea_index += 1
     
     try:
-        print(f"🤖 Генерирую пост на тему: {idea}")
         post_content = await call_yandexgpt(idea, style="auto")
         
-        # Отправляем в канал
-        await bot.send_message(CHANNEL_ID, post_content)
-        print(f"✅ Пост отправлен в канал {CHANNEL_ID}")
+        # Чистим перед отправкой
+        post_content = post_content.strip()
+        if not post_content:
+            return
         
-    except Exception as e:
-        print(f"❌ Ошибка автопостинга: {e}")
+        await bot.send_message(CHANNEL_ID, post_content)
+        
+    except Exception:
+        pass  # Тихо игнорируем ошибки автопостинга
 
 
 def get_action_keyboard() -> InlineKeyboardMarkup:
@@ -310,16 +311,24 @@ async def main():
 
         try:
             formatted = await call_yandexgpt(draft, style="default")
+            
+            # Дополнительная очистка перед сохранением
+            formatted = formatted.strip()
+            if not formatted:
+                await message.answer("❌ Получен пустой ответ от YandexGPT")
+                return
+                
             user_drafts[user_id]["last_post"] = formatted
             
-            # Убедимся что текст в UTF-8
-            formatted = str(formatted).encode('utf-8', errors='ignore').decode('utf-8')
-            
         except Exception as e:
-            error_msg = str(e).encode('utf-8', errors='ignore').decode('utf-8')
-            await message.answer(f"Ошибка:\n{error_msg}")
+            error_text = str(e)
+            # Чистим текст ошибки от проблемных символов
+            error_text = error_text.encode('ascii', errors='ignore').decode('ascii')
+            await message.answer(f"Error: {error_text}")
             return
 
+    # Пробуем отправить
+    try:
         if len(formatted) > 3500:
             chunks = []
             current = ""
@@ -332,12 +341,19 @@ async def main():
                 chunks.append(current)
             
             for i, part in enumerate(chunks):
-                if i == len(chunks) - 1:
-                    await message.answer(part, reply_markup=get_action_keyboard())
-                else:
-                    await message.answer(part)
+                part = part.strip()
+                if part:  # Проверяем что кусок не пустой
+                    if i == len(chunks) - 1:
+                        await message.answer(part, reply_markup=get_action_keyboard())
+                    else:
+                        await message.answer(part)
         else:
             await message.answer(formatted, reply_markup=get_action_keyboard())
+            
+    except Exception as e:
+        error_text = str(e)
+        error_text = error_text.encode('ascii', errors='ignore').decode('ascii')
+        await message.answer(f"Send failed: {error_text}")
 
     @dp.callback_query(F.data.startswith("action_"))
     async def handle_action(callback: CallbackQuery):
