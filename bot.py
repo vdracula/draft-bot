@@ -309,6 +309,8 @@ async def main():
         
         await message.answer("⏳ Думаю над текстом...")
 
+        formatted = None  # Инициализируем переменную
+        
         try:
             formatted = await call_yandexgpt(draft, style="default")
             
@@ -327,28 +329,28 @@ async def main():
             await message.answer(f"Error: {error_text}")
             return
 
-    # Пробуем отправить
-    try:
-        if len(formatted) > 3500:
-            chunks = []
-            current = ""
-            for line in formatted.split("\n"):
-                if len(current) + len(line) + 1 > 3500:
+        # Пробуем отправить (formatted уже определён)
+        try:
+            if len(formatted) > 3500:
+                chunks = []
+                current = ""
+                for line in formatted.split("\n"):
+                    if len(current) + len(line) + 1 > 3500:
+                        chunks.append(current)
+                        current = ""
+                    current += line + "\n"
+                if current:
                     chunks.append(current)
-                    current = ""
-                current += line + "\n"
-            if current:
-                chunks.append(current)
-            
-            for i, part in enumerate(chunks):
-                part = part.strip()
-                if part:  # Проверяем что кусок не пустой
-                    if i == len(chunks) - 1:
-                        await message.answer(part, reply_markup=get_action_keyboard())
-                    else:
-                        await message.answer(part)
-        else:
-            await message.answer(formatted, reply_markup=get_action_keyboard())
+                
+                for i, part in enumerate(chunks):
+                    part = part.strip()
+                    if part:  # Проверяем что кусок не пустой
+                        if i == len(chunks) - 1:
+                            await message.answer(part, reply_markup=get_action_keyboard())
+                        else:
+                            await message.answer(part)
+            else:
+                await message.answer(formatted, reply_markup=get_action_keyboard())
             
     except Exception as e:
         error_text = str(e)
