@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 from datetime import datetime, time
 from aiogram import Bot, Dispatcher, F
