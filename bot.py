@@ -318,7 +318,7 @@ async def main():
         else:
             await message.answer(formatted, reply_markup=get_action_keyboard())
 
-        @dp.callback_query(F.data.startswith("action_"))
+    @dp.callback_query(F.data.startswith("action_"))
     async def handle_action(callback: CallbackQuery):
         user_id = callback.from_user.id
         action = callback.data.replace("action_", "")
