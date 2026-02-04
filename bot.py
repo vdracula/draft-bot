@@ -13,6 +13,8 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import locale
+import logging   # ← можно и тут
+
 try:
     locale.setlocale(locale.LC_ALL, 'C.UTF-8')
 except:
@@ -20,10 +22,16 @@ except:
 
 load_dotenv()
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 YC_API_KEY = os.getenv("YC_API_KEY")
 YC_FOLDER_ID = os.getenv("YC_FOLDER_ID")
-CHANNEL_ID = os.getenv("CHANNEL_ID")  # ID твоего канала, например: @neurocodermoscow или -1001234567890
+CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 YA_ENDPOINT = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 YA_MODEL_URI = f"gpt://{YC_FOLDER_ID}/yandexgpt/latest"
