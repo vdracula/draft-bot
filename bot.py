@@ -101,7 +101,7 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
     user_prompt += "Сформируй ответ строго по описанным правилам."
     
     headers = {
-        "Content-Type": "application/json; charset=utf-8",  # ← Добавь charset
+        "Content-Type": "application/json",
         "Authorization": f"Api-Key {YC_API_KEY}",
         "x-folder-id": YC_FOLDER_ID,
     }
@@ -122,11 +122,18 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
     async with httpx.AsyncClient(timeout=90) as client:
         resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
         resp.raise_for_status()
-        resp.encoding = 'utf-8'  # ← Добавь это
+        
+        # Явно указываем кодировку
         data = resp.json()
-        return data["result"]["alternatives"][0]["message"]["text"]
+        text = data["result"]["alternatives"][0]["message"]["text"]
+        
+        # Убеждаемся что текст в правильной кодировке
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
+        
+        return str(text)
 
-
+    
 async def generate_and_post(bot: Bot):
     """Генерация и отправка автопоста"""
     global last_idea_index
@@ -284,40 +291,45 @@ async def main():
         )
         await state.clear()
 
-    @dp.message(F.text)
-    async def handle_draft(message: Message):
-        draft = message.text.strip()
-        user_id = message.from_user.id
-        
-        user_drafts[user_id] = {"text": draft, "style": "default"}
-        
-        await message.answer("⏳ Думаю над текстом...")
+@dp.message(F.text)
+async def handle_draft(message: Message):
+    draft = message.text.strip()
+    user_id = message.from_user.id
+    
+    user_drafts[user_id] = {"text": draft, "style": "default"}
+    
+    await message.answer("⏳ Думаю над текстом...")
 
-        try:
-            formatted = await call_yandexgpt(draft, style="default")
-            user_drafts[user_id]["last_post"] = formatted
-        except Exception as e:
-            await message.answer(f"❌ Ошибка:\n{str(e)}")
-            return
+    try:
+        formatted = await call_yandexgpt(draft, style="default")
+        user_drafts[user_id]["last_post"] = formatted
+        
+        # Убедимся что текст в UTF-8
+        formatted = str(formatted).encode('utf-8', errors='ignore').decode('utf-8')
+        
+    except Exception as e:
+        error_msg = str(e).encode('utf-8', errors='ignore').decode('utf-8')
+        await message.answer(f"Ошибка:\n{error_msg}")
+        return
 
-        if len(formatted) > 3500:
-            chunks = []
-            current = ""
-            for line in formatted.split("\n"):
-                if len(current) + len(line) + 1 > 3500:
-                    chunks.append(current)
-                    current = ""
-                current += line + "\n"
-            if current:
+    if len(formatted) > 3500:
+        chunks = []
+        current = ""
+        for line in formatted.split("\n"):
+            if len(current) + len(line) + 1 > 3500:
                 chunks.append(current)
-            
-            for i, part in enumerate(chunks):
-                if i == len(chunks) - 1:
-                    await message.answer(part, reply_markup=get_action_keyboard())
-                else:
-                    await message.answer(part)
-        else:
-            await message.answer(formatted, reply_markup=get_action_keyboard())
+                current = ""
+            current += line + "\n"
+        if current:
+            chunks.append(current)
+        
+        for i, part in enumerate(chunks):
+            if i == len(chunks) - 1:
+                await message.answer(part, reply_markup=get_action_keyboard())
+            else:
+                await message.answer(part)
+    else:
+        await message.answer(formatted, reply_markup=get_action_keyboard())
 
     @dp.callback_query(F.data.startswith("action_"))
     async def handle_action(callback: CallbackQuery):
