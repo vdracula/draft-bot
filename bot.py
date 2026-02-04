@@ -1,5 +1,4 @@
 import os
-import sys
 import asyncio
 from datetime import datetime, time
 from aiogram import Bot, Dispatcher, F
@@ -12,15 +11,6 @@ from dotenv import load_dotenv
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-
-# Добавь эти строки сразу после импортов:
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-# Устанавливаем кодировку UTF-8
-os.environ["PYTHONIOENCODING"] = "utf-8"
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
 
 load_dotenv()
 
