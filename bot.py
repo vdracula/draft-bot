@@ -100,18 +100,17 @@ autopost_enabled = False
 last_idea_index = 0
 
 async def call_yandexgpt(draft_text: str, style: str = "default", action: str = None) -> str:
-    """Вызов YandexGPT"""
     system_prompt = PROMPTS.get(style, PROMPTS["default"])
-    
+
     user_prompt = f"Тема/черновик:\n{draft_text}\n\n"
-    
+
     if action == "shorter":
         user_prompt += "Сделай пост КОРОЧЕ (максимум 7-8 предложений).\n\n"
     elif action == "longer":
         user_prompt += "Сделай пост ПОДРОБНЕЕ (12-15 предложений).\n\n"
-    
+
     user_prompt += "Сформируй ответ строго по описанным правилам."
-    
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Api-Key {YC_API_KEY}",
@@ -132,21 +131,26 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
     }
 
     async with httpx.AsyncClient(timeout=90) as client:
-        resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
-        resp.raise_for_status()
-        
-        # Получаем JSON
+        try:
+            resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            # логируем статус, текст и кусок payload
+            logger.error(
+                "YandexGPT HTTP error: %s | status=%s | body=%s",
+                exc,
+                getattr(exc.response, "status_code", None),
+                getattr(exc.response, "text", None),
+            )
+            raise
+
         data = resp.json()
         text = data["result"]["alternatives"][0]["message"]["text"]
-        
-        # КРИТИЧЕСКИ ВАЖНО: чистим текст
-        # Убираем невидимые символы и контрольные коды
+
         text = text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
-        
-        # Убираем NULL bytes и другие проблемные символы
         text = text.replace('\x00', '')
         text = ''.join(char for char in text if char.isprintable() or char in '\n\r\t')
-        
+
         return text.strip()
 
     
