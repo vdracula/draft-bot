@@ -1,11 +1,4 @@
 meta:
-  environment: python
+  environment: docker
   toolchain:
-    name: python
-    version: 3.11
-
-build:
-  dockerfile: Dockerfile
-
-run:
-  dockerfile: Dockerfile
+    name: docker
