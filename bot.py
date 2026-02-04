@@ -352,10 +352,10 @@ async def main():
             else:
                 await message.answer(formatted, reply_markup=get_action_keyboard())
             
-    except Exception as e:
-        error_text = str(e)
-        error_text = error_text.encode('ascii', errors='ignore').decode('ascii')
-        await message.answer(f"Send failed: {error_text}")
+        except Exception as e:
+            error_text = str(e)
+            error_text = error_text.encode('ascii', errors='ignore').decode('ascii')
+            await message.answer(f"Send failed: {error_text}")
 
     @dp.callback_query(F.data.startswith("action_"))
     async def handle_action(callback: CallbackQuery):
