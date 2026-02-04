@@ -291,45 +291,45 @@ async def main():
         )
         await state.clear()
 
-@dp.message(F.text)
-async def handle_draft(message: Message):
-    draft = message.text.strip()
-    user_id = message.from_user.id
-    
-    user_drafts[user_id] = {"text": draft, "style": "default"}
-    
-    await message.answer("⏳ Думаю над текстом...")
-
-    try:
-        formatted = await call_yandexgpt(draft, style="default")
-        user_drafts[user_id]["last_post"] = formatted
+    @dp.message(F.text)
+    async def handle_draft(message: Message):
+        draft = message.text.strip()
+        user_id = message.from_user.id
         
-        # Убедимся что текст в UTF-8
-        formatted = str(formatted).encode('utf-8', errors='ignore').decode('utf-8')
+        user_drafts[user_id] = {"text": draft, "style": "default"}
         
-    except Exception as e:
-        error_msg = str(e).encode('utf-8', errors='ignore').decode('utf-8')
-        await message.answer(f"Ошибка:\n{error_msg}")
-        return
+        await message.answer("⏳ Думаю над текстом...")
 
-    if len(formatted) > 3500:
-        chunks = []
-        current = ""
-        for line in formatted.split("\n"):
-            if len(current) + len(line) + 1 > 3500:
+        try:
+            formatted = await call_yandexgpt(draft, style="default")
+            user_drafts[user_id]["last_post"] = formatted
+            
+            # Убедимся что текст в UTF-8
+            formatted = str(formatted).encode('utf-8', errors='ignore').decode('utf-8')
+            
+        except Exception as e:
+            error_msg = str(e).encode('utf-8', errors='ignore').decode('utf-8')
+            await message.answer(f"Ошибка:\n{error_msg}")
+            return
+
+        if len(formatted) > 3500:
+            chunks = []
+            current = ""
+            for line in formatted.split("\n"):
+                if len(current) + len(line) + 1 > 3500:
+                    chunks.append(current)
+                    current = ""
+                current += line + "\n"
+            if current:
                 chunks.append(current)
-                current = ""
-            current += line + "\n"
-        if current:
-            chunks.append(current)
-        
-        for i, part in enumerate(chunks):
-            if i == len(chunks) - 1:
-                await message.answer(part, reply_markup=get_action_keyboard())
-            else:
-                await message.answer(part)
-    else:
-        await message.answer(formatted, reply_markup=get_action_keyboard())
+            
+            for i, part in enumerate(chunks):
+                if i == len(chunks) - 1:
+                    await message.answer(part, reply_markup=get_action_keyboard())
+                else:
+                    await message.answer(part)
+        else:
+            await message.answer(formatted, reply_markup=get_action_keyboard())
 
     @dp.callback_query(F.data.startswith("action_"))
     async def handle_action(callback: CallbackQuery):
