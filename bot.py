@@ -1,3 +1,4 @@
+import sys
 import os
 import asyncio
 from datetime import datetime, time
@@ -16,6 +17,12 @@ try:
     locale.setlocale(locale.LC_ALL, 'C.UTF-8')
 except:
     pass
+
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
 
 load_dotenv()
 
