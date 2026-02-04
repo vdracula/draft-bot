@@ -11,6 +11,11 @@ from dotenv import load_dotenv
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+import locale
+try:
+    locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+except:
+    pass
 
 load_dotenv()
 
@@ -119,19 +124,22 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
         ],
     }
 
-    async with httpx.AsyncClient(timeout=90) as client:
-        resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
-        resp.raise_for_status()
-        
-        # Явно указываем кодировку
-        data = resp.json()
-        text = data["result"]["alternatives"][0]["message"]["text"]
-        
-        # Убеждаемся что текст в правильной кодировке
-        if isinstance(text, bytes):
-            text = text.decode('utf-8')
-        
-        return str(text)
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
+            resp.raise_for_status()
+            
+            # Получаем ответ как bytes и декодируем в UTF-8
+            content = resp.content
+            data = resp.json()
+            text = data["result"]["alternatives"][0]["message"]["text"]
+            
+            # Принудительно конвертируем в строку UTF-8
+            return text
+            
+    except Exception as e:
+        # Возвращаем сообщение об ошибке на английском
+        return f"Error: {str(e)}"
 
     
 async def generate_and_post(bot: Bot):
