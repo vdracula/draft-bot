@@ -12,6 +12,15 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+# Добавь эти строки сразу после импортов:
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+# Устанавливаем кодировку UTF-8
+os.environ["PYTHONIOENCODING"] = "utf-8"
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -101,7 +110,7 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
     user_prompt += "Сформируй ответ строго по описанным правилам."
     
     headers = {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",  # ← Добавь charset
         "Authorization": f"Api-Key {YC_API_KEY}",
         "x-folder-id": YC_FOLDER_ID,
     }
@@ -122,6 +131,7 @@ async def call_yandexgpt(draft_text: str, style: str = "default", action: str = 
     async with httpx.AsyncClient(timeout=90) as client:
         resp = await client.post(YA_ENDPOINT, headers=headers, json=payload)
         resp.raise_for_status()
+        resp.encoding = 'utf-8'  # ← Добавь это
         data = resp.json()
         return data["result"]["alternatives"][0]["message"]["text"]
 
