@@ -18,12 +18,6 @@ try:
 except:
     pass
 
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
-if sys.stderr.encoding != 'utf-8':
-    sys.stderr.reconfigure(encoding='utf-8')
-
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -334,10 +328,10 @@ async def main():
             user_drafts[user_id]["last_post"] = formatted
             
         except Exception as e:
+            # Просто приводим к строке, Telegram спокойно ест UTF-8
             error_text = str(e)
-            # Чистим текст ошибки от проблемных символов
-            error_text = error_text.encode('ascii', errors='ignore').decode('ascii')
             await message.answer(f"Error: {error_text}")
+            logger.exception("Ошибка в handle_draft: %s", e)
             return
 
         # Пробуем отправить (formatted уже определён)
@@ -364,9 +358,10 @@ async def main():
                 await message.answer(formatted, reply_markup=get_action_keyboard())
             
         except Exception as e:
+             # Просто приводим к строке, Telegram спокойно ест UTF-8
             error_text = str(e)
-            error_text = error_text.encode('ascii', errors='ignore').decode('ascii')
             await message.answer(f"Send failed: {error_text}")
+            logger.exception("Ошибка при отправке сообщения: %s", e)
 
     @dp.callback_query(F.data.startswith("action_"))
     async def handle_action(callback: CallbackQuery):
